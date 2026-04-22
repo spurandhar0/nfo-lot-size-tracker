@@ -1,0 +1,55 @@
+name: 📊 NSE NFO Daily Update
+
+on:
+  # ── Scheduled: runs every weekday at 6:30 PM IST (13:00  UTC) ────────────
+  schedule:
+    - cron: "0 13 * * 1-5"   # Mon–Fri at 13:00 UTC = 06:30 PM IST
+
+  # ── Manual trigger from GitHub Actions UI ────────────────────────────────
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual run (optional)"
+        required: false
+        default: "Manual trigger"
+
+jobs:
+  update-nfo-data:
+    name: Fetch & Update NFO Excel
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # needed to push the updated Excel back to repo
+
+    steps:
+      # 1. Checkout repo
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Set up Python
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # 3. Install dependencies
+      - name: 📦 Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. Run the fetch script
+      - name: 🚀 Fetch NSE NFO data & update Excel
+        run: python scripts/fetch_nfo_data.py
+
+      # 5. Commit & push updated files back to repo
+      - name: 📤 Commit & push updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/nfo_lot_sizes.xlsx data/nfo_lot_sizes.json
+          git diff --cached --quiet || git commit -m "📊 Auto-update: NSE NFO data $(date +'%d %b %Y %H:%M IST')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
